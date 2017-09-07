@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"log"
 	"strconv"
+	"gopkg.in/olivere/elastic.v3"
 	"reflect"
-	elastic "gopkg.in/olivere/elastic.v3"
 	"github.com/pborman/uuid"
 )
 
@@ -22,6 +22,17 @@ type Post struct {
 	Message  string  `json:"message"`
 	Location Location `json:"location"`
 }
+
+const (
+	INDEX = "around"
+	TYPE = "post"
+	DISTANCE = "200km"
+	// Needs to update
+	//PROJECT_ID = "around-xxx"
+	//BT_INSTANCE = "around-post"
+	// Needs to update this URL if you deploy it to cloud.
+	ES_URL = "http://localhost:9200"
+)
 
 func main() {
 	// Create a client
@@ -63,69 +74,18 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-
-func handlerPost(w http.ResponseWriter, r *http.Request) {
-	// Parse from body of request to get a json object.
-	fmt.Println("Received one post request")
-	decoder := json.NewDecoder(r.Body)
-	var p Post
-	if err := decoder.Decode(&p); err != nil {
-		panic(err)
-		return
-	}
-
-	fmt.Printf("Post received: %s\n", p.Message)
-
-	// Create a client
-	es_client, err := elastic.NewClient(elastic.SetURL(ES_URL), elastic.SetSniff(false))
-	if err != nil {
-		panic(err)
-		return
-	}
-
-	id := uuid.New()
-
-	// Save it to index
-	_, err = es_client.Index().
-		Index(INDEX).
-		Type(TYPE).
-		Id(id).
-		BodyJson(p).
-		Refresh(true).
-
-		Do()
-	if err != nil {
-		panic(err)
-		return
-	}
-
-	fmt.Printf("Post is saved to Index: %s\n", p.Message)
-}
-
-
-const (
-	INDEX = "around"
-	TYPE = "post"
-	DISTANCE = "200km"
-	// Needs to update
-	//PROJECT_ID = "around-xxx"
-	//BT_INSTANCE = "around-post"
-	// Needs to update this URL if you deploy it to cloud.
-	ES_URL = "http://54.202.42.162:9200"
-)
-
-
 func handlerSearch(w http.ResponseWriter, r *http.Request) {
-      fmt.Println("Received one request for search")
-      lat, _ := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
-      lon, _ := strconv.ParseFloat(r.URL.Query().Get("lon"), 64)
-      // range is optional 
-      ran := DISTANCE 
-      if val := r.URL.Query().Get("range"); val != "" { 
-         ran = val + "km" 
-      }
+	fmt.Println("Received one request for search")
+	lat, _ := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
+	lon, _ := strconv.ParseFloat(r.URL.Query().Get("lon"), 64)
 
-     fmt.Println("Search received: %s %s %s", lat, lon, ran)
+	// range is optional
+	ran := DISTANCE
+	if val := r.URL.Query().Get("range"); val != "" {
+		ran = val + "km"
+	}
+
+	fmt.Printf("Search received: %f %f %s", lat, lon, ran)
 
 	// Create a client
 	client, err := elastic.NewClient(elastic.SetURL(ES_URL), elastic.SetSniff(false))
@@ -177,5 +137,40 @@ func handlerSearch(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(js)
 
+}
 
+
+func handlerPost(w http.ResponseWriter, r *http.Request) {
+	// Parse from body of request to get a json object.
+	fmt.Println("Received one post request")
+	decoder := json.NewDecoder(r.Body)
+	var p Post
+
+	if err := decoder.Decode(&p); err != nil {
+		panic(err)
+		return
+	}
+	// Create a client
+	es_client, err := elastic.NewClient(elastic.SetURL(ES_URL), elastic.SetSniff(false))
+	if err != nil {
+		panic(err)
+		return
+	}
+
+	id := uuid.New()
+
+	// Save it to index
+	_, err = es_client.Index().
+		Index(INDEX).
+		Type(TYPE).
+		Id(id).
+		BodyJson(p).
+		Refresh(true).
+		Do()
+	if err != nil {
+		panic(err)
+		return
+	}
+
+	fmt.Printf("Post is saved to Index: %s\n", p.Message)
 }
