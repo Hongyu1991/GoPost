@@ -33,7 +33,7 @@ const (
 	PROJECT_ID = "symbolic-path-176022"
 	BT_INSTANCE = "around-post"
 	// Needs to update this URL if you deploy it to cloud.
-	ES_URL = "http://54.218.12.95:9200"
+	ES_URL = "http://54.191.122.14:9200"
 )
 
 func main() {
