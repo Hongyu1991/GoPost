@@ -11,6 +11,7 @@ import (
 	"github.com/pborman/uuid"
 	"context"
 	"cloud.google.com/go/bigtable"
+	"strings"
 )
 
 type Location struct {
@@ -34,6 +35,7 @@ const (
 	BT_INSTANCE = "around-post"
 	// Needs to update this URL if you deploy it to cloud.
 	ES_URL = "http://54.191.122.14:9200"
+	spams = [4]string{"ass","shit", "fuck", "jerk"}
 )
 
 func main() {
@@ -43,7 +45,6 @@ func main() {
 		panic(err)
 		return
 	}
-
 	// Use the IndexExists service to check if a specified index exists.
 	exists, err := client.IndexExists(INDEX).Do()
 	if err != nil {
@@ -127,8 +128,15 @@ func handlerSearch(w http.ResponseWriter, r *http.Request) {
 		p := item.(Post)
 		fmt.Printf("Post by %s: %s at lat %v and lon %v\n", p.User, p.Message, p.Location.Lat, p.Location.Lon)
 		// TODO(vincent): Perform filtering based on keywords such as web spam etc.
-		ps = append(ps, p)
-
+		var mark bool = true
+		for i := 0; i < len(spams); i++ {
+			if (!strings.Contains(p.Message, spams[i])) {
+				mark = false
+			}
+		}
+		if (mark) {
+			ps = append(ps, p)
+		}
 	}
 	js, err := json.Marshal(ps)
 	if err != nil {
@@ -200,8 +208,4 @@ func handlerPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Printf("Post is saved to BigTable: %s\n", p.Message)
-
-
-
-
 }
